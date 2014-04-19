@@ -83,7 +83,7 @@ public class MediaData {
 			int mode = modes[i];
 			Uri uri = getUri(mode);
 			
-			if(uri != null) {
+			if(contentResolver != null && uri != null) {
 				
 				Cursor cursor = contentResolver.query(
 						uri,
@@ -93,23 +93,27 @@ public class MediaData {
 						null
 				);
 				
-				while(cursor.moveToNext()) {
-					
-					multipleArray.setValue("[MediaData]["+ arrayIndex +"][mediaDataMode]", String.valueOf(mode));
-					
-					for (int j = 0; j < columns.length; j++) {
+				if(cursor != null && cursor.getCount() > 0) {
+
+					while(cursor.moveToNext()) {
 						
-						String column = columns[j];
-						String value = cursor.getString(cursor.getColumnIndex(column));
-						multipleArray.setValue("[MediaData]["+ arrayIndex +"]["+ column +"]", value);
+						multipleArray.setValue("[MediaData]["+ arrayIndex +"][mediaDataMode]", String.valueOf(mode));
+						
+						for (int j = 0; j < columns.length; j++) {
+							
+							String column = columns[j];
+							String value = cursor.getString(cursor.getColumnIndex(column));
+							multipleArray.setValue("[MediaData]["+ arrayIndex +"]["+ column +"]", value);
+							
+						}
+						
+						arrayIndex++;
 						
 					}
 					
-					arrayIndex++;
+					cursor.close();
 					
 				}
-				
-				cursor.close();
 				
 			}
 		
