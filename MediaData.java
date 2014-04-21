@@ -2,7 +2,11 @@ package com.sukohi.lib;
 
 /*  Dependencies: MultipleArray  */
 
+import java.util.ArrayList;
+import java.util.List;
+
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
@@ -16,6 +20,9 @@ public class MediaData {
 	public static final int MODE_IMAGES_EXTERNAL = 4;
 	public static final int MODE_VIDEO_INTERNAL = 5;
 	public static final int MODE_VIDEO_EXTERNAL = 6;
+	public static final String COLUMN_TYPE_STRING = "string";
+	public static final String COLUMN_TYPE_INTEGER = "integer";
+	public static final String COLUMN_TYPE_BOOLEAN = "boolean";
 	private ContentResolver contentResolver;
 	private int[] modes;
 	
@@ -73,10 +80,23 @@ public class MediaData {
 		
 	}
 	
-	public MultipleArray get(String[] columns) {
+	public List<ContentValues> get(List<MediaDataColumn> mediaDataColumnList) {
+
+		List<ContentValues> mediaList = new ArrayList<ContentValues>();
 		
-		MultipleArray multipleArray = new MultipleArray();
-		int arrayIndex = 0;
+		if(mediaDataColumnList.size() == 0) {
+			
+			return mediaList;
+			
+		}
+
+		List<String> columnList = new ArrayList<String>();
+		
+		for (int i = 0; i < mediaDataColumnList.size(); i++) {
+			
+			columnList.add(mediaDataColumnList.get(i).column);
+			
+		}
 		
 		for (int i = 0; i < modes.length; i++) {
 			
@@ -85,6 +105,7 @@ public class MediaData {
 			
 			if(contentResolver != null && uri != null) {
 				
+				String[] columns = columnList.toArray(new String[columnList.size()]);
 				Cursor cursor = contentResolver.query(
 						uri,
 						columns,
@@ -97,17 +118,41 @@ public class MediaData {
 
 					while(cursor.moveToNext()) {
 						
-						multipleArray.setValue("[MediaData]["+ arrayIndex +"][mediaDataMode]", String.valueOf(mode));
+						ContentValues contentValues = new ContentValues();
 						
-						for (int j = 0; j < columns.length; j++) {
+						for (int j = 0; j < mediaDataColumnList.size(); j++) {
 							
-							String column = columns[j];
-							String value = cursor.getString(cursor.getColumnIndex(column));
-							multipleArray.setValue("[MediaData]["+ arrayIndex +"]["+ column +"]", value);
+							MediaDataColumn mediaDataColumn =  mediaDataColumnList.get(j);
+							String column = mediaDataColumn.column;
+							String type = mediaDataColumn.type;
+							String value = "";
+							
+							if(type.equals(COLUMN_TYPE_INTEGER) || type.equals(COLUMN_TYPE_BOOLEAN)) {
+								
+								int intValue = cursor.getInt(cursor.getColumnIndex(column));
+								
+								if(type.equals(COLUMN_TYPE_BOOLEAN)) {
+									
+									boolean booleanValue = (intValue == 0) ? false : true;
+									value = String.valueOf(booleanValue);
+									
+								} else {
+									
+									value = String.valueOf(intValue);
+									
+								}
+								
+							} else {
+								
+								value = cursor.getString(cursor.getColumnIndex(column));
+								
+							}
+							
+							contentValues.put(column, value);
 							
 						}
 						
-						arrayIndex++;
+						mediaList.add(contentValues);
 						
 					}
 					
@@ -119,38 +164,78 @@ public class MediaData {
 		
 		}
 
-		return multipleArray;
+		return mediaList;
+		
+	}
+
+	public static MediaDataColumn columnString(String column) {
+		
+		return column(column, COLUMN_TYPE_STRING);
+		
+	}
+	
+	public static MediaDataColumn columnInteger(String column) {
+		
+		return column(column, COLUMN_TYPE_INTEGER);
+		
+	}
+	
+	public static MediaDataColumn columnBoolean(String column) {
+		
+		return column(column, COLUMN_TYPE_BOOLEAN);
+		
+	}
+	
+	private static MediaDataColumn column(String column, String type) {
+		
+		return new MediaDataColumn(column, type);
+		
+	}
+	
+	public static class MediaDataColumn {
+		
+		private String column, type;
+		
+		public MediaDataColumn(String column, String type) {
+			
+			this.column = column;
+			this.type = type;
+			
+		}
 		
 	}
 	
 }
 /*** Example
 
-	MediaData mediaData = new MediaData(context);
+	MediaData mediaData = new MediaData(this);
 	
-	mediaData.setMode(MediaData.MODE_AUDIO_INTERNAL); // or the below
-	mediaData.setModes(new int[]{
-			
-			MediaData.MODE_AUDIO_INTERNAL, 
-			MediaData.MODE_AUDIO_EXTERNAL
-			
-	});
-	MultipleArray multipleArray = mediaData.get(new String[]{
-			
-			MediaStore.Audio.Media.TITLE, 
-			MediaStore.Audio.Media.ARTIST, 
-			MediaStore.Audio.Media.DURATION
-			
-	});
-	
-	int multipleArrayCount = multipleArray.getCount("[MediaData]");
-		
-	for (int i = 0; i < multipleArrayCount; i++) {
+	mediaData.setMode(MediaData.MODE_AUDIO_INTERNAL); // or like the below
+//	mediaData.setModes(new int[]{
+//			
+//			MediaData.MODE_AUDIO_INTERNAL, 
+//			MediaData.MODE_AUDIO_EXTERNAL, 
+//			MediaData.MODE_IMAGES_INTERNAL, 
+//			MediaData.MODE_IMAGES_EXTERNAL, 
+//			MediaData.MODE_VIDEO_INTERNAL, 
+//			MediaData.MODE_VIDEO_EXTERNAL;
+//			
+//	});
 
-		String title = multipleArray.getString("[MediaData]["+ i +"][title]");
-		String artist = multipleArray.getString("[MediaData]["+ i +"][artist]");
-		long duration = multipleArray.getLong("[MediaData]["+ i +"][duration]");
-		int isMusic = multipleArray.getInt("[MediaData]["+ i +"][is_music]");
+	List<MediaDataColumn> columnList = new ArrayList<MediaDataColumn>();
+	columnList.add( MediaData.columnString(MediaStore.Audio.Media.TITLE) );
+	columnList.add( MediaData.columnString(MediaStore.Audio.Media.ARTIST) );
+	columnList.add( MediaData.columnInteger(MediaStore.Audio.Media.DURATION) );
+	columnList.add( MediaData.columnBoolean(MediaStore.Audio.Media.IS_MUSIC) );
+	List<ContentValues> mediaList = mediaData.get(columnList);
+	
+	for (int i = 0; i < mediaList.size(); i++) {
+
+		ContentValues mediaValues = mediaList.get(i);
+		String title = mediaValues.getAsString(MediaStore.Audio.Media.TITLE);
+		String artist = mediaValues.getAsString(MediaStore.Audio.Media.ARTIST);
+		long duration = mediaValues.getAsLong(MediaStore.Audio.Media.DURATION);
+		boolean isMusic = mediaValues.getAsBoolean(MediaStore.Audio.Media.IS_MUSIC);
 		
 	}
 	
